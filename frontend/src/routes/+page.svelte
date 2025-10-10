@@ -26,16 +26,58 @@
 				el.controls = true;
 				el.style.width = '1920px';
 				el.style.height = '1080px';
+
 				el.onclick = (event) => {
 					event.preventDefault();
-					mouseChannel?.send(
-						JSON.stringify({
-							type: 'click',
-							x: event.clientX,
-							y: event.clientY,
-							button: event.button
-						})
-					);
+				};
+
+				el.onmousedown = (event) => {
+					event.preventDefault();
+					if (event.button === 0) {
+						mouseChannel?.send(
+							JSON.stringify({
+								type: 'down',
+								x: event.clientX,
+								y: event.clientY,
+								button: 'left'
+							})
+						);
+					} else if (event.button === 2) {
+						mouseChannel?.send(
+							JSON.stringify({
+								type: 'down',
+								x: event.clientX,
+								y: event.clientY,
+								button: 'right'
+							})
+						);
+					}
+				};
+				el.onmouseup = (event) => {
+					event.preventDefault();
+					if (event.button === 0) {
+						mouseChannel?.send(
+							JSON.stringify({
+								type: 'up',
+								x: event.clientX,
+								y: event.clientY,
+								button: 'left'
+							})
+						);
+					} else if (event.button === 2) {
+						mouseChannel?.send(
+							JSON.stringify({
+								type: 'up',
+								x: event.clientX,
+								y: event.clientY,
+								button: 'right'
+							})
+						);
+					}
+				};
+
+				el.oncontextmenu = (event) => {
+					event.preventDefault();
 				};
 				el.onmousemove = function (event) {
 					mouseChannel?.send(
