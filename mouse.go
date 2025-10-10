@@ -26,3 +26,11 @@ func moveMouse(newX int32, newY int32) {
 	fmt.Printf("Cursor moved to: X=%d, Y=%d\n", newX, newY)
 
 }
+
+func clickMouse() {
+	user32 := syscall.NewLazyDLL("user32.dll")
+	// Simulate a left click at the new position
+	mouseEvent := user32.NewProc("mouse_event")
+	_, _, _ = syscall.SyscallN(mouseEvent.Addr(), uintptr(MOUSEEVENTF_LEFTDOWN), 0, 0, 0, 0) // Left button down
+	_, _, _ = syscall.SyscallN(mouseEvent.Addr(), uintptr(MOUSEEVENTF_LEFTUP), 0, 0, 0, 0)   // Left button up
+}

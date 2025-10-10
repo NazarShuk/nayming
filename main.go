@@ -75,9 +75,14 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				// convert to json
 				var mouseData map[string]interface{}
 				json.Unmarshal([]byte(msg.Data), &mouseData)
-				fmt.Println(mouseData)
 
-				moveMouse(int32(mouseData["x"].(float64)), int32(mouseData["y"].(float64)))
+				if mouseData["type"] == "click" {
+					clickMouse()
+				}
+				if mouseData["type"] == "move" {
+					moveMouse(int32(mouseData["x"].(float64)), int32(mouseData["y"].(float64)))
+				}
+
 			})
 		}
 

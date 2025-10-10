@@ -28,10 +28,19 @@
 				el.style.height = '1080px';
 				el.onclick = (event) => {
 					event.preventDefault();
+					mouseChannel?.send(
+						JSON.stringify({
+							type: 'click',
+							x: event.clientX,
+							y: event.clientY,
+							button: event.button
+						})
+					);
 				};
 				el.onmousemove = function (event) {
 					mouseChannel?.send(
 						JSON.stringify({
+							type: 'move',
 							x: event.clientX,
 							y: event.clientY
 						})
