@@ -2,11 +2,12 @@
 	import { onMount } from 'svelte';
 
 	let serverAddress = $state('ws://localhost:8080');
-	let messages: string[] = $state([]);
 
 	let ws: WebSocket | null = $state(null);
 	let connection: RTCPeerConnection | null = $state(null);
 	let mouseChannel: RTCDataChannel | null = $state(null);
+
+	let videoElement: HTMLVideoElement | undefined = $state();
 
 	function connect() {
 		ws = new WebSocket(`${serverAddress}/ws`);
@@ -20,76 +21,10 @@
 
 			connection.ontrack = function (event) {
 				console.log(event.track.kind);
-				const el = document.createElement(event.track.kind) as HTMLMediaElement;
-				el.srcObject = event.streams[0];
-				el.autoplay = true;
-				el.controls = true;
-				el.style.width = '1920px';
-				el.style.height = '1080px';
-
-				el.onclick = (event) => {
-					event.preventDefault();
-				};
-
-				el.onmousedown = (event) => {
-					event.preventDefault();
-					if (event.button === 0) {
-						mouseChannel?.send(
-							JSON.stringify({
-								type: 'down',
-								x: event.clientX,
-								y: event.clientY,
-								button: 'left'
-							})
-						);
-					} else if (event.button === 2) {
-						mouseChannel?.send(
-							JSON.stringify({
-								type: 'down',
-								x: event.clientX,
-								y: event.clientY,
-								button: 'right'
-							})
-						);
-					}
-				};
-				el.onmouseup = (event) => {
-					event.preventDefault();
-					if (event.button === 0) {
-						mouseChannel?.send(
-							JSON.stringify({
-								type: 'up',
-								x: event.clientX,
-								y: event.clientY,
-								button: 'left'
-							})
-						);
-					} else if (event.button === 2) {
-						mouseChannel?.send(
-							JSON.stringify({
-								type: 'up',
-								x: event.clientX,
-								y: event.clientY,
-								button: 'right'
-							})
-						);
-					}
-				};
-
-				el.oncontextmenu = (event) => {
-					event.preventDefault();
-				};
-				el.onmousemove = function (event) {
-					mouseChannel?.send(
-						JSON.stringify({
-							type: 'move',
-							x: event.clientX,
-							y: event.clientY
-						})
-					);
-				};
-
-				document.body.appendChild(el);
+				if (videoElement) {
+					videoElement.srcObject = event.streams[0];
+					videoElement.play();
+				}
 			};
 
 			connection.addTransceiver('video', { direction: 'sendrecv' });
@@ -152,9 +87,26 @@
 	});
 </script>
 
-<input bind:value={serverAddress} class="border-1 border-black" placeholder="server address" />
-<button onclick={connect}>connect</button>
-
-{#each messages as msg, i (i)}
-	<p>{msg}</p>
-{/each}
+<div class="flex h-screen w-full flex-col items-center justify-center bg-neutral-950 text-white">
+	{#if connection}
+		<video class="h-full w-full" bind:this={videoElement} />
+	{:else}
+		<div class="h-1/2 w-1/2 rounded bg-neutral-900 p-2.5">
+			<h1 class="mb-5 text-xl font-bold">Connect</h1>
+			<form
+				class="flex flex-row justify-between gap-5"
+				onsubmit={(e) => {
+					e.preventDefault();
+					connect();
+				}}
+			>
+				<input
+					bind:value={serverAddress}
+					class="w-full rounded bg-neutral-800 p-1"
+					placeholder="server address"
+				/>
+				<button class="rounded bg-neutral-800 p-1" type="submit">Connect</button>
+			</form>
+		</div>
+	{/if}
+</div>
