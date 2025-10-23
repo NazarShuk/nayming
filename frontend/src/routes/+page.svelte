@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { toScreenCoords } from '$lib/utils';
 	import { onMount } from 'svelte';
 
 	let serverAddress = $state('ws://localhost:8080');
@@ -85,11 +86,90 @@
 			}
 		};
 	});
+
+	function handleMouseMove(event: MouseEvent) {
+		event.preventDefault();
+		const target = event.target as HTMLImageElement;
+		const rect = target.getBoundingClientRect();
+
+		const { x, y } = toScreenCoords(
+			event.clientX - rect.left,
+			event.clientY - rect.top,
+			rect.width,
+			rect.height,
+			1920,
+			1080
+		);
+
+		if (mouseChannel?.readyState === 'open') {
+			mouseChannel?.send(
+				JSON.stringify({
+					type: 'move',
+					x,
+					y
+				})
+			);
+		}
+	}
+	function handleMouseDown(event: MouseEvent) {
+		event.preventDefault();
+		const target = event.target as HTMLImageElement;
+		const rect = target.getBoundingClientRect();
+
+		const { x, y } = toScreenCoords(
+			event.clientX - rect.left,
+			event.clientY - rect.top,
+			rect.width,
+			rect.height,
+			1920,
+			1080
+		);
+
+		if (mouseChannel?.readyState === 'open') {
+			mouseChannel?.send(
+				JSON.stringify({
+					type: 'down',
+					button: event.button === 0 ? 'left' : 'right'
+				})
+			);
+		}
+	}
+	function handleMouseUp(event: MouseEvent) {
+		event.preventDefault();
+		const target = event.target as HTMLImageElement;
+		const rect = target.getBoundingClientRect();
+
+		const { x, y } = toScreenCoords(
+			event.clientX - rect.left,
+			event.clientY - rect.top,
+			rect.width,
+			rect.height,
+			1920,
+			1080
+		);
+		if (mouseChannel?.readyState === 'open') {
+			mouseChannel?.send(
+				JSON.stringify({
+					type: 'up',
+					button: event.button === 0 ? 'left' : 'right'
+				})
+			);
+		}
+	}
 </script>
 
 <div class="flex h-screen w-full flex-col items-center justify-center bg-neutral-950 text-white">
 	{#if connection}
-		<video class="h-full w-full" bind:this={videoElement} />
+		<video
+			onmousemove={handleMouseMove}
+			onmousedown={handleMouseDown}
+			onmouseup={handleMouseUp}
+			oncontextmenu={(e) => {
+				e.preventDefault();
+			}}
+			class="h-full w-full"
+			bind:this={videoElement}
+		/>
 	{:else}
 		<div class="h-1/2 w-1/2 rounded bg-neutral-900 p-2.5">
 			<h1 class="mb-5 text-xl font-bold">Connect</h1>
