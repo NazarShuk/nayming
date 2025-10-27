@@ -168,6 +168,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 				switch keyboardData["type"] {
 				case "down":
 					robotgo.KeyDown(keyboardData["key"].(string))
+					
 				case "up":
 					robotgo.KeyUp(keyboardData["key"].(string))
 				}

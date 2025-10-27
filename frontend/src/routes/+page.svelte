@@ -203,12 +203,13 @@
 	}
 	function handleKeyDown(event: KeyboardEvent) {
 		if (!connection) return;
+		if (event.repeat) return;
 		event.preventDefault();
 		if (keyboardChannel?.readyState === 'open') {
 			keyboardChannel?.send(
 				JSON.stringify({
 					type: 'down',
-					key: event.key
+					key: event.key.toLowerCase().replace('arrow', '')
 				})
 			);
 		}
@@ -216,11 +217,12 @@
 	function handleKeyUp(event: KeyboardEvent) {
 		if (!connection) return;
 		event.preventDefault();
+		if (event.repeat) return;
 		if (keyboardChannel?.readyState === 'open') {
 			keyboardChannel?.send(
 				JSON.stringify({
 					type: 'up',
-					key: event.key
+					key: event.key.toLowerCase().replace('arrow', '')
 				})
 			);
 		}
