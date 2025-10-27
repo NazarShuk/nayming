@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-vgo/robotgo"
 	"github.com/gorilla/websocket"
@@ -40,6 +41,17 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+
+	// websocket keep alive
+	go func() {
+		for {
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				log.Println("Ping error:", err)
+			}
+			time.Sleep(10 * time.Second)
+			log.Println("ws ping")
+		}
+	}()
 
 	for {
 		var msg map[string]interface{}
