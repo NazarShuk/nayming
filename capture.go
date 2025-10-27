@@ -12,12 +12,10 @@ import (
 	"github.com/pion/webrtc/v3/pkg/media"
 )
 
-func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, fps int) error {
+func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int) error {
 	cmd := exec.Command("ffmpeg",
 		"-f", "gdigrab",
 		"-framerate", fmt.Sprintf("%d", fps),
-		"-offset_x", "0", // X position of the monitor (0 for primary)
-		"-offset_y", "0", // Y position of the monitor
 		"-video_size", "1920x1080", // Resolution of that screen
 		"-i", "desktop", // Capture desktop
 		"-c:v", "libvpx",
@@ -42,6 +40,7 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, fps int) error {
 		"-undershoot-pct", "100",
 		"-pix_fmt", "yuv420p",
 		"-f", "ivf",
+		"-loglevel", "error", // hide a bunch of stuff it spits out
 		"pipe:1")
 
 	stdout, err := cmd.StdoutPipe()
@@ -65,8 +64,27 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, fps int) error {
 		return err
 	}
 
+	// Channel to signal when to stop
+	stopChan := make(chan struct{})
+
+	// Monitor peer connection state
+	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if state == webrtc.PeerConnectionStateDisconnected ||
+			state == webrtc.PeerConnectionStateFailed ||
+			state == webrtc.PeerConnectionStateClosed {
+			log.Printf("peer disconnected")
+			close(stopChan)
+		}
+	})
+
 	go func() {
-		defer cmd.Wait()
+		defer func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+			cmd.Wait()
+			log.Println("FFmpeg process stopped")
+		}()
 
 		// Read IVF header (32 bytes)
 		ivfHeader := make([]byte, 32)
@@ -80,6 +98,13 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, fps int) error {
 		startTime := time.Now()
 
 		for {
+			select {
+			case <-stopChan:
+				return
+			default:
+				// its okay
+			}
+
 			// Read frame header (12 bytes)
 			frameHeader := make([]byte, 12)
 			if _, err := io.ReadFull(stdout, frameHeader); err != nil {
@@ -113,7 +138,7 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, fps int) error {
 			}
 
 			frameCount++
-			if frameCount%30 == 0 {
+			if frameCount%200 == 0 {
 				elapsed := time.Since(startTime).Seconds()
 				actualFPS := float64(frameCount) / elapsed
 				log.Printf("Sent %d frames, actual FPS: %.2f", frameCount, actualFPS)

@@ -17,6 +17,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+type IceServer struct {
+	URLs       string `json:"urls"`
+	Username   string `json:"username"`
+	Credential string `json:"credential"`
+}
+
 func main() {
 	http.HandleFunc("/ws", handleWebSocket)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -35,12 +41,55 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// WebRTC configuration
-	config := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{URLs: []string{"stun:stun.l.google.com:19302"}},
-		},
+	for {
+		var msg map[string]interface{}
+		if err := conn.ReadJSON(&msg); err != nil {
+			break
+		}
+
+		switch msg["type"] {
+		case "iceServers":
+
+			var iceServersJSON string
+			var ok bool
+
+			if iceServersJSON, ok = msg["iceServers"].(string); !ok {
+				log.Println("iceServers is not a string")
+				continue
+			}
+
+			var iceServers []IceServer
+
+			err := json.Unmarshal([]byte(iceServersJSON), &iceServers)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			config := webrtc.Configuration{
+				ICEServers: []webrtc.ICEServer{},
+			}
+
+			fmt.Println("Ice servers")
+			for _, iceServer := range iceServers {
+				config.ICEServers = append(config.ICEServers, webrtc.ICEServer{
+					URLs:       []string{iceServer.URLs},
+					Username:   iceServer.Username,
+					Credential: iceServer.Credential,
+				})
+				fmt.Println(iceServer)
+			}
+
+			conn.WriteJSON(map[string]interface{}{
+				"type": "ready",
+			})
+			// creating peer
+			createPeer(conn, config)
+		}
 	}
+}
+
+func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 
 	pc, err := webrtc.NewPeerConnection(config)
 	if err != nil {
@@ -48,6 +97,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer pc.Close()
+	defer robotgo.KeyToggle("", "up")
+	defer robotgo.MouseUp(robotgo.Key0)
+	defer robotgo.MouseUp(robotgo.Key1)
+	defer robotgo.MouseUp(robotgo.Key2)
+
 	handlePeer(pc)
 
 	// Send ICE candidates to client
@@ -64,7 +118,6 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
 		if dc.Label() == "alive" {
 			fmt.Print("alive")
-
 		}
 		if dc.Label() == "mouse" {
 			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
@@ -154,7 +207,6 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			pc.AddICECandidate(candidate)
 		}
 	}
-
 }
 
 func handlePeer(pc *webrtc.PeerConnection) {
@@ -175,13 +227,20 @@ func handlePeer(pc *webrtc.PeerConnection) {
 	go func() {
 		rtcpBuf := make([]byte, 1500)
 		for {
-			if _, _, err := rtpSender.Read(rtcpBuf); err != nil {
+			n, _, err := rtpSender.Read(rtcpBuf)
+			if err != nil {
+				log.Println("RTCP read error:", err)
 				return
+			}
+
+			// Log RTCP packets for debugging
+			if n > 0 {
+				log.Printf("Received RTCP packet: %d bytes", n)
 			}
 		}
 	}()
 
-	captureErr := CaptureScreenToTrack(videoTrack, 60)
+	captureErr := CaptureScreenToTrack(videoTrack, pc, 60)
 	if captureErr != nil {
 		log.Println(captureErr)
 		return
