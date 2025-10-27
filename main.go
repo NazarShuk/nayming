@@ -72,28 +72,40 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				var mouseData map[string]interface{}
 				json.Unmarshal([]byte(msg.Data), &mouseData)
 
-				if mouseData["type"] == "down" {
+				switch mouseData["type"] {
+				case "down":
 					switch mouseData["button"] {
 					case "left":
 						robotgo.MouseDown(robotgo.Left)
 					case "right":
 						robotgo.MouseDown(robotgo.Right)
 					}
-				}
-
-				if mouseData["type"] == "up" {
+				case "up":
 					switch mouseData["button"] {
 					case "left":
 						robotgo.MouseUp(robotgo.Left)
 					case "right":
 						robotgo.MouseUp(robotgo.Right)
 					}
-				}
-
-				if mouseData["type"] == "move" {
+				case "move":
 					robotgo.Move(int(mouseData["x"].(float64)), int(mouseData["y"].(float64)))
+
 				}
 
+			})
+		}
+		if dc.Label() == "keyboard" {
+			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+				// convert to json
+				var keyboardData map[string]interface{}
+				json.Unmarshal([]byte(msg.Data), &keyboardData)
+				fmt.Println(keyboardData)
+				switch keyboardData["type"] {
+				case "down":
+					robotgo.KeyDown(keyboardData["key"].(string))
+				case "up":
+					robotgo.KeyUp(keyboardData["key"].(string))
+				}
 			})
 		}
 

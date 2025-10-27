@@ -7,6 +7,7 @@
 	let ws: WebSocket | null = $state(null);
 	let connection: RTCPeerConnection | null = $state(null);
 	let mouseChannel: RTCDataChannel | null = $state(null);
+	let keyboardChannel: RTCDataChannel | null = $state(null);
 
 	let videoElement: HTMLVideoElement | undefined = $state();
 
@@ -32,6 +33,7 @@
 
 			connection.createDataChannel('alive');
 			mouseChannel = connection.createDataChannel('mouse');
+			keyboardChannel = connection.createDataChannel('keyboard');
 
 			// Send ICE candidates to server
 			connection.onicecandidate = (event) => {
@@ -83,6 +85,12 @@
 			}
 			if (connection) {
 				connection.close();
+			}
+			if (keyboardChannel) {
+				keyboardChannel.close();
+			}
+			if (mouseChannel) {
+				mouseChannel.close();
 			}
 		};
 	});
@@ -156,10 +164,35 @@
 			);
 		}
 	}
+	function handleKeyDown(event: KeyboardEvent) {
+		event.preventDefault();
+		if (keyboardChannel?.readyState === 'open') {
+			keyboardChannel?.send(
+				JSON.stringify({
+					type: 'down',
+					key: event.key
+				})
+			);
+		}
+	}
+	function handleKeyUp(event: KeyboardEvent) {
+		event.preventDefault();
+		if (keyboardChannel?.readyState === 'open') {
+			keyboardChannel?.send(
+				JSON.stringify({
+					type: 'up',
+					key: event.key
+				})
+			);
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} />
 
 <div class="flex h-screen w-full flex-col items-center justify-center bg-neutral-950 text-white">
 	{#if connection}
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<video
 			onmousemove={handleMouseMove}
 			onmousedown={handleMouseDown}
@@ -169,7 +202,9 @@
 			}}
 			class="h-full w-full"
 			bind:this={videoElement}
-		/>
+		>
+			<track kind="captions" />
+		</video>
 	{:else}
 		<div class="h-1/2 w-1/2 rounded bg-neutral-900 p-2.5">
 			<h1 class="mb-5 text-xl font-bold">Connect</h1>
