@@ -127,7 +127,8 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 					}
 				case "move":
 					robotgo.Move(int(mouseData["x"].(float64)), int(mouseData["y"].(float64)))
-
+				case "wheel":
+					robotgo.Scroll(int(mouseData["x"].(float64)), int(mouseData["y"].(float64)))
 				}
 
 			})

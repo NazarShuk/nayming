@@ -216,6 +216,19 @@
 			);
 		}
 	}
+	function handleWheel(event: WheelEvent) {
+		if (!connection) return;
+		event.preventDefault();
+		if (mouseChannel?.readyState === 'open') {
+			mouseChannel?.send(
+				JSON.stringify({
+					type: 'wheel',
+					y: event.deltaY,
+					x: event.deltaX
+				})
+			);
+		}
+	}
 </script>
 
 <svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} />
@@ -228,6 +241,7 @@
 				onmousemove={handleMouseMove}
 				onmousedown={handleMouseDown}
 				onmouseup={handleMouseUp}
+				onwheel={handleWheel}
 				oncontextmenu={(e) => {
 					e.preventDefault();
 				}}
