@@ -11,7 +11,7 @@
 	let videoElement: HTMLVideoElement | undefined = $state();
 
 	let iceServers: RTCIceServer[] = [];
-	let status: string = $state('Connecting...');
+	let status: string = $state('Websocket connecting...');
 
 	function saveAddress() {
 		localStorage.setItem('serverAddress', serverAddress);
@@ -84,6 +84,9 @@
 			console.log('Status: ' + connection?.connectionState);
 			if (connection?.connectionState === 'failed') {
 				location.reload();
+			}
+			if (connection?.connectionState === 'connecting'){
+				status = 'WebRTC connecting...';
 			}
 			if (connection?.connectionState === 'connected') {
 				status = '';
@@ -233,7 +236,7 @@
 			>
 				<track kind="captions" />
 			</video>
-			<h1 class="absolute left-0.5 top-0.5 z-10">{status}</h1>
+			<h1 class="absolute left-1/2 top-1/2 z-10 text-center transform-x-[-50%] transform-y-[-50%]">{status}</h1>
 		</div>
 	{:else}
 		<div class="h-1/2 w-1/2 flex-col rounded bg-neutral-900 p-2.5">
