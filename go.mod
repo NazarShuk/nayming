@@ -13,6 +13,7 @@ require (
 	github.com/google/uuid v1.3.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect

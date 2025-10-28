@@ -53,52 +53,25 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	for {
-		var msg map[string]interface{}
-		if err := conn.ReadJSON(&msg); err != nil {
-			break
-		}
+	iceServers := generateTurnToken(turnId(), turnToken())
+	conn.WriteJSON(map[string]interface{}{
+		"type":       "iceServers",
+		"iceServers": iceServers,
+	})
 
-		switch msg["type"] {
-		case "iceServers":
-
-			var iceServersJSON string
-			var ok bool
-
-			if iceServersJSON, ok = msg["iceServers"].(string); !ok {
-				log.Println("iceServers is not a string")
-				continue
-			}
-
-			var iceServers []IceServer
-
-			err := json.Unmarshal([]byte(iceServersJSON), &iceServers)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			config := webrtc.Configuration{
-				ICEServers: []webrtc.ICEServer{},
-			}
-
-			fmt.Println("Ice servers")
-			for _, iceServer := range iceServers {
-				config.ICEServers = append(config.ICEServers, webrtc.ICEServer{
-					URLs:       []string{iceServer.URLs},
-					Username:   iceServer.Username,
-					Credential: iceServer.Credential,
-				})
-				fmt.Println(iceServer)
-			}
-
-			conn.WriteJSON(map[string]interface{}{
-				"type": "ready",
-			})
-			// creating peer
-			createPeer(conn, config)
-		}
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{},
 	}
+	for _, iceServer := range iceServers {
+		config.ICEServers = append(config.ICEServers, webrtc.ICEServer{
+			URLs:       iceServer.URLs,
+			Username:   iceServer.Username,
+			Credential: iceServer.Credential,
+		})
+	}
+
+	createPeer(conn, config)
+
 }
 
 func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
@@ -168,7 +141,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 				switch keyboardData["type"] {
 				case "down":
 					robotgo.KeyDown(keyboardData["key"].(string))
-					
+
 				case "up":
 					robotgo.KeyUp(keyboardData["key"].(string))
 				}

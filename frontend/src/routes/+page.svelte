@@ -9,41 +9,22 @@
 	let mouseChannel: RTCDataChannel | null = $state(null);
 	let keyboardChannel: RTCDataChannel | null = $state(null);
 	let videoElement: HTMLVideoElement | undefined = $state();
-	let additionalIceServers: RTCIceServer[] = $state([{ urls: 'stun:stun.l.google.com:19302' }]);
 
-	onMount(() => {
-		additionalIceServers = JSON.parse(localStorage.getItem('additionalIceServers') || '[]');
-		serverAddress = localStorage.getItem('serverAddress') || 'ws://localhost:8080';
-	});
-	function saveServers() {
-		localStorage.setItem('additionalIceServers', JSON.stringify(additionalIceServers));
-	}
+	let iceServers: RTCIceServer[] = [];
+	let status: string = $state('Connecting...');
+
 	function saveAddress() {
 		localStorage.setItem('serverAddress', serverAddress);
 	}
+	onMount(() => {
+		serverAddress = localStorage.getItem('serverAddress') || 'ws://localhost:8080';
+	});
 
 	function connect() {
 		ws = new WebSocket(`${serverAddress}/ws`);
 		ws.onopen = async () => {
 			console.log('WebSocket connected');
-
-			for (const iceServer of additionalIceServers) {
-				if (iceServer.username === '') {
-					iceServer.username = undefined;
-				}
-				if (iceServer.credential === '') {
-					iceServer.credential = undefined;
-				}
-			}
-			saveServers();
-
-			// send ice servers
-			ws?.send(
-				JSON.stringify({
-					type: 'iceServers',
-					iceServers: JSON.stringify(additionalIceServers) // it has to be stringified
-				})
-			);
+			status = 'WebSocket connected, waiting for ICE servers...';
 		};
 
 		ws.onmessage = async (event) => {
@@ -57,7 +38,9 @@
 			} else if (msg.type === 'candidate') {
 				const candidate = JSON.parse(msg.candidate);
 				await connection?.addIceCandidate(candidate);
-			} else if (msg.type === 'ready') {
+			} else if (msg.type === 'iceServers') {
+				iceServers = msg.iceServers;
+				status = 'ICE servers received, creating connection...';
 				console.log('creating connection');
 				createConnection();
 			}
@@ -67,7 +50,7 @@
 	async function createConnection() {
 		// Create peer connection
 		connection = new RTCPeerConnection({
-			iceServers: additionalIceServers
+			iceServers: iceServers
 		});
 
 		connection.ontrack = function (event) {
@@ -101,6 +84,9 @@
 			console.log('Status: ' + connection?.connectionState);
 			if (connection?.connectionState === 'failed') {
 				location.reload();
+			}
+			if (connection?.connectionState === 'connected') {
+				status = '';
 			}
 		};
 
@@ -232,20 +218,23 @@
 <svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} />
 
 <div class="flex h-screen w-full flex-col items-center justify-center bg-neutral-950 text-white">
-	{#if connection}
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<video
-			onmousemove={handleMouseMove}
-			onmousedown={handleMouseDown}
-			onmouseup={handleMouseUp}
-			oncontextmenu={(e) => {
-				e.preventDefault();
-			}}
-			class="h-full w-full"
-			bind:this={videoElement}
-		>
-			<track kind="captions" />
-		</video>
+	{#if ws}
+		<div class="relative flex h-full w-full">
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+			<video
+				onmousemove={handleMouseMove}
+				onmousedown={handleMouseDown}
+				onmouseup={handleMouseUp}
+				oncontextmenu={(e) => {
+					e.preventDefault();
+				}}
+				class="h-full w-full"
+				bind:this={videoElement}
+			>
+				<track kind="captions" />
+			</video>
+			<h1 class="absolute left-0.5 top-0.5 z-10">{status}</h1>
+		</div>
 	{:else}
 		<div class="h-1/2 w-1/2 flex-col rounded bg-neutral-900 p-2.5">
 			<h1 class="mb-5 text-xl font-bold">Connect</h1>
@@ -265,47 +254,6 @@
 
 				<button class="rounded bg-neutral-800 p-1" type="submit">Connect</button>
 			</form>
-			<div class="shrink-1 mt-2.5 flex h-full w-full flex-col gap-2.5 overflow-y-auto">
-				<h2>Ice servers</h2>
-				{#each additionalIceServers as iceServer}
-					<div class="flex flex-row items-center justify-between gap-2.5">
-						<input
-							bind:value={iceServer.urls}
-							onchange={saveServers}
-							class="w-full rounded bg-neutral-800 p-1"
-							placeholder="url"
-						/>
-						<input
-							bind:value={iceServer.username}
-							onchange={saveServers}
-							class="w-full rounded bg-neutral-800 p-1"
-							placeholder="username"
-						/>
-						<input
-							bind:value={iceServer.credential}
-							onchange={saveServers}
-							class="w-full rounded bg-neutral-800 p-1"
-							placeholder="credential"
-						/>
-
-						<button
-							class="rounded bg-neutral-800 p-1"
-							type="button"
-							onclick={() => {
-								additionalIceServers = additionalIceServers.filter(
-									(server) => server !== iceServer
-								);
-								saveServers();
-							}}
-						>
-							x
-						</button>
-					</div>
-				{/each}
-				<button onclick={() => (additionalIceServers = [...additionalIceServers, { urls: 'yo' }])}
-					>Add ice server</button
-				>
-			</div>
 		</div>
 	{/if}
 </div>
