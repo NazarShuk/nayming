@@ -25,18 +25,18 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 		"-error-resilient", "1",
 		"-auto-alt-ref", "0",
 		"-lag-in-frames", "0",
-		"-b:v", "5000k", // Lower bitrate for less lag
-		"-minrate", "1000k",
-		"-maxrate", "5000k",
+		"-b:v", fmt.Sprintf("%dk", appConfig.StreamSettings.bitrate),
+		"-minrate", fmt.Sprintf("%dk", appConfig.StreamSettings.minBitrate),
+		"-maxrate", fmt.Sprintf("%dk", appConfig.StreamSettings.maxBitrate),
 		"-bufsize", "400k",
 		"-quality", "realtime",
-		"-speed", "16", // Max speed
+		"-speed", fmt.Sprintf("%d", appConfig.StreamSettings.speed),
 		"-tile-columns", "2",
 		"-frame-parallel", "1",
 		"-static-thresh", "0",
 		"-max-intra-rate", "300",
-		"-qmin", "10", // Allow more quantization (lower quality)
-		"-qmax", "63", // Max compression
+		"-qmin", fmt.Sprintf("%d", appConfig.StreamSettings.qmin),
+		"-qmax", fmt.Sprintf("%d", appConfig.StreamSettings.qmax),
 		"-undershoot-pct", "100",
 		"-pix_fmt", "yuv420p",
 		"-f", "ivf",

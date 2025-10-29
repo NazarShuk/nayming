@@ -26,14 +26,34 @@ type IceServer struct {
 type NaymingConfig struct {
 	MouseEnabled    bool
 	KeyboardEnabled bool
+	StreamSettings  NaymingStreamSettings
+}
+type NaymingStreamSettings struct {
+	FPS        int
+	bitrate    int
+	maxBitrate int
+	minBitrate int
+	qmin       int
+	qmax       int
+	speed      int
 }
 
 var appConfig NaymingConfig = NaymingConfig{
 	MouseEnabled:    true,
 	KeyboardEnabled: true,
+	StreamSettings: NaymingStreamSettings{
+		FPS:        60,
+		bitrate:    1000,
+		maxBitrate: 2000,
+		minBitrate: 500,
+		qmin:       10,
+		qmax:       63,
+		speed:      16,
+	},
 }
 
 func main() {
+
 	http.HandleFunc("/ws", handleWebSocket)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
@@ -274,7 +294,7 @@ func handlePeer(pc *webrtc.PeerConnection, stop *chan struct{}) {
 		}
 	}()
 
-	captureErr := CaptureScreenToTrack(videoTrack, pc, 60, stop)
+	captureErr := CaptureScreenToTrack(videoTrack, pc, appConfig.StreamSettings.FPS, stop)
 	if captureErr != nil {
 		log.Println(captureErr)
 		return
