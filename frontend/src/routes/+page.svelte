@@ -85,7 +85,7 @@
 			if (connection?.connectionState === 'failed') {
 				location.reload();
 			}
-			if (connection?.connectionState === 'connecting'){
+			if (connection?.connectionState === 'connecting') {
 				status = 'WebRTC connecting...';
 			}
 			if (connection?.connectionState === 'connected') {
@@ -223,8 +223,8 @@
 			mouseChannel?.send(
 				JSON.stringify({
 					type: 'wheel',
-					y: event.deltaY,
-					x: event.deltaX
+					y: -event.deltaY / 100,
+					x: -event.deltaX / 100
 				})
 			);
 		}
@@ -250,7 +250,9 @@
 			>
 				<track kind="captions" />
 			</video>
-			<h1 class="absolute left-1/2 top-1/2 z-10 text-center transform-x-[-50%] transform-y-[-50%]">{status}</h1>
+			<h1 class="transform-x-[-50%] transform-y-[-50%] absolute left-1/2 top-1/2 z-10 text-center">
+				{status}
+			</h1>
 		</div>
 	{:else}
 		<div class="h-1/2 w-1/2 flex-col rounded bg-neutral-900 p-2.5">
