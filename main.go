@@ -23,6 +23,15 @@ type IceServer struct {
 	Username   string `json:"username"`
 	Credential string `json:"credential"`
 }
+type NaymingConfig struct {
+	MouseEnabled    bool
+	KeyboardEnabled bool
+}
+
+var appConfig NaymingConfig = NaymingConfig{
+	MouseEnabled:    false,
+	KeyboardEnabled: false,
+}
 
 func main() {
 	http.HandleFunc("/ws", handleWebSocket)
@@ -110,6 +119,9 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 				var mouseData map[string]interface{}
 				json.Unmarshal([]byte(msg.Data), &mouseData)
 
+				if !appConfig.MouseEnabled {
+					return
+				}
 				switch mouseData["type"] {
 				case "down":
 					switch mouseData["button"] {
@@ -135,6 +147,9 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 		}
 		if dc.Label() == "keyboard" {
 			dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+				if !appConfig.KeyboardEnabled {
+					return
+				}
 				// convert to json
 				var keyboardData map[string]interface{}
 				json.Unmarshal([]byte(msg.Data), &keyboardData)
