@@ -65,17 +65,6 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 	}
 
 	go func() {
-		select {
-		case <-*stop:
-			if cmd.Process != nil {
-				cmd.Process.Kill()
-			}
-			cmd.Wait()
-			log.Println("ffmpeg stopped by stop channel")
-			return
-		default:
-			// its okay
-		}
 		defer func() {
 			if cmd.Process != nil {
 				cmd.Process.Kill()
@@ -96,7 +85,17 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 		startTime := time.Now()
 
 		for {
-
+			select {
+			case <-*stop:
+				if cmd.Process != nil {
+					cmd.Process.Kill()
+				}
+				cmd.Wait()
+				log.Println("ffmpeg stopped by stop channel")
+				return
+			default:
+				// its okay
+			}
 			// Read frame header (12 bytes)
 			frameHeader := make([]byte, 12)
 			if _, err := io.ReadFull(stdout, frameHeader); err != nil {

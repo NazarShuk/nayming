@@ -55,6 +55,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	defer close(stop)
 	conn.SetCloseHandler(func(code int, text string) error {
 		log.Println("Websocket connection was closed.")
+		log.Println("Closing stop channel")
 		close(stop)
 
 		return nil
@@ -62,14 +63,14 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// websocket keep alive
 	go func() {
-		select {
-		case <-stop:
-			log.Println("ws ping stopped by stop channel")
-			return
-		default:
-			// its okay
-		}
 		for {
+			select {
+			case <-stop:
+				log.Println("ws ping stopped by stop channel")
+				return
+			default:
+				// its okay
+			}
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				log.Println("Ping error:", err)
 			}
@@ -250,15 +251,16 @@ func handlePeer(pc *webrtc.PeerConnection, stop *chan struct{}) {
 	}
 
 	go func() {
-		select {
-		case <-*stop:
-			log.Println("rtcp loop stopped by stop chan")
-			return
-		default:
-			// its okay
-		}
+
 		rtcpBuf := make([]byte, 1500)
 		for {
+			select {
+			case <-*stop:
+				log.Println("rtcp loop stopped by stop chan")
+				return
+			default:
+				// its okay
+			}
 			n, _, err := rtpSender.Read(rtcpBuf)
 			if err != nil {
 				log.Println("RTCP read error:", err)
