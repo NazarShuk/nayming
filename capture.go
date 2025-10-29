@@ -12,7 +12,7 @@ import (
 	"github.com/pion/webrtc/v3/pkg/media"
 )
 
-func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int) error {
+func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int, stop *chan struct{}) error {
 	cmd := exec.Command("ffmpeg",
 		"-f", "gdigrab",
 		"-framerate", fmt.Sprintf("%d", fps),
@@ -25,9 +25,9 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 		"-error-resilient", "1",
 		"-auto-alt-ref", "0",
 		"-lag-in-frames", "0",
-		"-b:v", "800k", // Lower bitrate for less lag
-		"-minrate", "400k",
-		"-maxrate", "1000k",
+		"-b:v", "5000k", // Lower bitrate for less lag
+		"-minrate", "1000k",
+		"-maxrate", "5000k",
 		"-bufsize", "400k",
 		"-quality", "realtime",
 		"-speed", "16", // Max speed
@@ -64,20 +64,18 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 		return err
 	}
 
-	// Channel to signal when to stop
-	stopChan := make(chan struct{})
-
-	// Monitor peer connection state
-	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		if state == webrtc.PeerConnectionStateDisconnected ||
-			state == webrtc.PeerConnectionStateFailed ||
-			state == webrtc.PeerConnectionStateClosed {
-			log.Printf("peer disconnected")
-			close(stopChan)
-		}
-	})
-
 	go func() {
+		select {
+		case <-*stop:
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+			cmd.Wait()
+			log.Println("ffmpeg stopped by stop channel")
+			return
+		default:
+			// its okay
+		}
 		defer func() {
 			if cmd.Process != nil {
 				cmd.Process.Kill()
@@ -98,12 +96,6 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 		startTime := time.Now()
 
 		for {
-			select {
-			case <-stopChan:
-				return
-			default:
-				// its okay
-			}
 
 			// Read frame header (12 bytes)
 			frameHeader := make([]byte, 12)

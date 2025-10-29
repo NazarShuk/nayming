@@ -51,8 +51,24 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	stop := make(chan struct{})
+	defer close(stop)
+	conn.SetCloseHandler(func(code int, text string) error {
+		log.Println("Websocket connection was closed.")
+		close(stop)
+
+		return nil
+	})
+
 	// websocket keep alive
 	go func() {
+		select {
+		case <-stop:
+			log.Println("ws ping stopped by stop channel")
+			return
+		default:
+			// its okay
+		}
 		for {
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				log.Println("Ping error:", err)
@@ -79,11 +95,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	createPeer(conn, config)
+	createPeer(conn, config, &stop)
 
 }
 
-func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
+func createPeer(conn *websocket.Conn, config webrtc.Configuration, stop *chan struct{}) {
 
 	pc, err := webrtc.NewPeerConnection(config)
 	if err != nil {
@@ -96,7 +112,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 	defer robotgo.MouseUp(robotgo.Key1)
 	defer robotgo.MouseUp(robotgo.Key2)
 
-	handlePeer(pc)
+	handlePeer(pc, stop)
 
 	// Send ICE candidates to client
 	pc.OnICECandidate(func(candidate *webrtc.ICECandidate) {
@@ -168,6 +184,13 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 
 	// Handle signaling messages
 	for {
+		select {
+		case <-*stop:
+			log.Println("signaling loop stopped by stop chan")
+			return
+		default:
+			// its okay
+		}
 		var msg map[string]interface{}
 		if err := conn.ReadJSON(&msg); err != nil {
 			break
@@ -211,7 +234,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration) {
 	}
 }
 
-func handlePeer(pc *webrtc.PeerConnection) {
+func handlePeer(pc *webrtc.PeerConnection, stop *chan struct{}) {
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
 		"video",
@@ -227,6 +250,13 @@ func handlePeer(pc *webrtc.PeerConnection) {
 	}
 
 	go func() {
+		select {
+		case <-*stop:
+			log.Println("rtcp loop stopped by stop chan")
+			return
+		default:
+			// its okay
+		}
 		rtcpBuf := make([]byte, 1500)
 		for {
 			n, _, err := rtpSender.Read(rtcpBuf)
@@ -242,7 +272,7 @@ func handlePeer(pc *webrtc.PeerConnection) {
 		}
 	}()
 
-	captureErr := CaptureScreenToTrack(videoTrack, pc, 60)
+	captureErr := CaptureScreenToTrack(videoTrack, pc, 60, stop)
 	if captureErr != nil {
 		log.Println(captureErr)
 		return
