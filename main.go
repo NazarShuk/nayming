@@ -29,8 +29,8 @@ type NaymingConfig struct {
 }
 
 var appConfig NaymingConfig = NaymingConfig{
-	MouseEnabled:    false,
-	KeyboardEnabled: false,
+	MouseEnabled:    true,
+	KeyboardEnabled: true,
 }
 
 func main() {
