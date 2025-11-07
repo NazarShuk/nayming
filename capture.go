@@ -13,7 +13,7 @@ import (
 )
 
 func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int, stop *chan struct{}) error {
-	// Build ffmpeg command using ffmpeg-go
+	// the ffmpeg
 	stream := ffmpeg.Input("desktop",
 		ffmpeg.KwArgs{
 			"f":          "gdigrab",

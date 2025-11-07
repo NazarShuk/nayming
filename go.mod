@@ -3,23 +3,27 @@ module nshis/nayming
 go 1.24.0
 
 require (
+	github.com/go-vgo/robotgo v0.110.8
+	github.com/gorilla/websocket v1.5.3
+	github.com/joho/godotenv v1.5.1
+	github.com/pion/webrtc/v3 v3.3.6
+	github.com/u2takey/ffmpeg-go v0.5.0
+)
+
+require (
 	github.com/aws/aws-sdk-go v1.55.8 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dblohm7/wingoes v0.0.0-20240820181039-f2b84150679e // indirect
 	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/gen2brain/shm v0.1.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/go-vgo/robotgo v0.110.8 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.3.1 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
-	github.com/kbinani/screenshot v0.0.0-20250624051815-089614a94018 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
-	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/otiai10/gosseract v2.2.1+incompatible // indirect
+	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pion/datachannel v1.5.8 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
 	github.com/pion/ice/v2 v2.3.38 // indirect
@@ -35,7 +39,6 @@ require (
 	github.com/pion/stun v0.6.1 // indirect
 	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
-	github.com/pion/webrtc/v3 v3.3.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/robotn/xgb v0.10.0 // indirect
@@ -45,7 +48,6 @@ require (
 	github.com/tailscale/win v0.0.0-20250213223159-5992cb43ca35 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
-	github.com/u2takey/ffmpeg-go v0.5.0 // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
 	github.com/vcaesar/gops v0.41.0 // indirect
 	github.com/vcaesar/imgo v0.41.0 // indirect
