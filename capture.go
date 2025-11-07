@@ -5,54 +5,64 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os/exec"
 	"time"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
+	ffmpeg "github.com/u2takey/ffmpeg-go"
 )
 
 func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int, stop *chan struct{}) error {
-	cmd := exec.Command("ffmpeg",
-		"-f", "gdigrab",
-		"-framerate", fmt.Sprintf("%d", fps),
-		"-video_size", "1920x1080", // Resolution of that screen
-		"-i", "desktop", // Capture desktop
-		"-c:v", "libvpx",
-		"-deadline", "realtime",
-		"-cpu-used", "16", // Max speed (0-16 for VP9)
-		"-threads", "8",
-		"-error-resilient", "1",
-		"-auto-alt-ref", "0",
-		"-lag-in-frames", "0",
-		"-b:v", fmt.Sprintf("%dk", appConfig.StreamSettings.bitrate),
-		"-minrate", fmt.Sprintf("%dk", appConfig.StreamSettings.minBitrate),
-		"-maxrate", fmt.Sprintf("%dk", appConfig.StreamSettings.maxBitrate),
-		"-bufsize", "400k",
-		"-quality", "realtime",
-		"-speed", fmt.Sprintf("%d", appConfig.StreamSettings.speed),
-		"-tile-columns", "2",
-		"-frame-parallel", "1",
-		"-static-thresh", "0",
-		"-max-intra-rate", "300",
-		"-qmin", fmt.Sprintf("%d", appConfig.StreamSettings.qmin),
-		"-qmax", fmt.Sprintf("%d", appConfig.StreamSettings.qmax),
-		"-undershoot-pct", "100",
-		"-pix_fmt", "yuv420p",
-		"-f", "ivf",
-		"-loglevel", "error", // hide a bunch of stuff it spits out
-		"pipe:1")
+	// Build ffmpeg command using ffmpeg-go
+	stream := ffmpeg.Input("desktop",
+		ffmpeg.KwArgs{
+			"f":          "gdigrab",
+			"framerate":  fmt.Sprintf("%d", fps),
+			"video_size": "1920x1080",
+		}).
+		Output("pipe:",
+			ffmpeg.KwArgs{
+				"c:v":             "libvpx",
+				"deadline":        "realtime",
+				"cpu-used":        "16",
+				"threads":         "8",
+				"error-resilient": "1",
+				"auto-alt-ref":    "0",
+				"lag-in-frames":   "0",
+				"b:v":             fmt.Sprintf("%dk", appConfig.StreamSettings.bitrate),
+				"minrate":         fmt.Sprintf("%dk", appConfig.StreamSettings.minBitrate),
+				"maxrate":         fmt.Sprintf("%dk", appConfig.StreamSettings.maxBitrate),
+				"bufsize":         "400k",
+				"quality":         "realtime",
+				"speed":           fmt.Sprintf("%d", appConfig.StreamSettings.speed),
+				"tile-columns":    "2",
+				"frame-parallel":  "1",
+				"static-thresh":   "0",
+				"max-intra-rate":  "300",
+				"qmin":            fmt.Sprintf("%d", appConfig.StreamSettings.qmin),
+				"qmax":            fmt.Sprintf("%d", appConfig.StreamSettings.qmax),
+				"undershoot-pct":  "100",
+				"pix_fmt":         "yuv420p",
+				"f":               "ivf",
+				"loglevel":        "error",
+			})
 
+	// Compile to get the underlying exec.Cmd
+	cmd := stream.Compile()
+
+	// Get stdout pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
 
+	// Get stderr pipe
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
 	}
 
+	// Monitor stderr for logs
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
@@ -60,6 +70,7 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 		}
 	}()
 
+	// Start the ffmpeg process
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -96,6 +107,7 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 			default:
 				// its okay
 			}
+
 			// Read frame header (12 bytes)
 			frameHeader := make([]byte, 12)
 			if _, err := io.ReadFull(stdout, frameHeader); err != nil {
