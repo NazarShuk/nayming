@@ -23,12 +23,12 @@ type IceServer struct {
 	Username   string `json:"username"`
 	Credential string `json:"credential"`
 }
-type NaymingConfig struct {
+type AppConfig struct {
 	MouseEnabled    bool
 	KeyboardEnabled bool
-	StreamSettings  NaymingStreamSettings
+	StreamSettings  AppStreamSettings
 }
-type NaymingStreamSettings struct {
+type AppStreamSettings struct {
 	FPS        int
 	bitrate    int
 	maxBitrate int
@@ -38,10 +38,10 @@ type NaymingStreamSettings struct {
 	speed      int
 }
 
-var appConfig NaymingConfig = NaymingConfig{
+var appConfig AppConfig = AppConfig{
 	MouseEnabled:    true,
 	KeyboardEnabled: true,
-	StreamSettings: NaymingStreamSettings{
+	StreamSettings: AppStreamSettings{
 		FPS:        60,
 		bitrate:    1000,
 		maxBitrate: 2000,
