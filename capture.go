@@ -85,37 +85,41 @@ func getFrameBuffer(size uint32) (*[]byte, *sync.Pool) {
 func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int) error {
 	stream := ffmpeg.Input("desktop",
 		ffmpeg.KwArgs{
-			"f":          "gdigrab",
-			"framerate":  fmt.Sprintf("%d", fps),
-			"video_size": "1920x1080",
+			"f":                 "gdigrab",
+			"framerate":         fmt.Sprintf("%d", fps),
+			"video_size":        "1920x1080",
+			"probesize":         "32",  // ADD: Reduce probing time
+			"thread_queue_size": "512", // ADD: Increase input buffer
 		}).
 		Output("pipe:",
 			ffmpeg.KwArgs{
 				"c:v":             "libvpx",
 				"deadline":        "realtime",
-				"cpu-used":        "16",
-				"threads":         "8",
+				"cpu-used":        "8",
+				"threads":         "4",
 				"error-resilient": "1",
 				"auto-alt-ref":    "0",
 				"lag-in-frames":   "0",
+				"keyint_min":      "60",
+				"g":               "60",
 				"b:v":             fmt.Sprintf("%dk", appConfig.StreamSettings.bitrate),
 				"minrate":         fmt.Sprintf("%dk", appConfig.StreamSettings.minBitrate),
 				"maxrate":         fmt.Sprintf("%dk", appConfig.StreamSettings.maxBitrate),
-				"bufsize":         "400k",
+				"bufsize":         "200k",
 				"quality":         "realtime",
-				"speed":           fmt.Sprintf("%d", appConfig.StreamSettings.speed),
-				"tile-columns":    "2",
-				"frame-parallel":  "1",
+				"speed":           "8",
+				"tile-columns":    "1",
+				"frame-parallel":  "0",
 				"static-thresh":   "0",
 				"max-intra-rate":  "300",
-				"qmin":            fmt.Sprintf("%d", appConfig.StreamSettings.qmin),
-				"qmax":            fmt.Sprintf("%d", appConfig.StreamSettings.qmax),
-				"undershoot-pct":  "100",
+				"qmin":            "4",
+				"qmax":            "48",
+				"undershoot-pct":  "95",
 				"pix_fmt":         "yuv420p",
+				"slices":          "4",
 				"f":               "ivf",
 				"loglevel":        "error",
 			})
-
 	cmd := stream.Compile()
 
 	stdout, err := cmd.StdoutPipe()
