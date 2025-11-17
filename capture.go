@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -12,7 +13,7 @@ import (
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 )
 
-func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int, stop *chan struct{}) error {
+func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int, ctx context.Context) error {
 	// the ffmpeg
 	stream := ffmpeg.Input("desktop",
 		ffmpeg.KwArgs{
@@ -97,7 +98,7 @@ func CaptureScreenToTrack(track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerC
 
 		for {
 			select {
-			case <-*stop:
+			case <-ctx.Done():
 				if cmd.Process != nil {
 					cmd.Process.Kill()
 				}

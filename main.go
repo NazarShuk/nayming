@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -71,31 +72,33 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	stop := make(chan struct{})
-	defer close(stop)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	conn.SetCloseHandler(func(code int, text string) error {
 		log.Println("Websocket connection was closed.")
-		log.Println("Closing stop channel")
-		close(stop)
+		log.Println("cancelling context")
+		cancel()
 
 		return nil
 	})
 
 	// websocket keep alive
 	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
-			case <-stop:
-				log.Println("ws ping stopped by stop channel")
+			case <-ctx.Done():
+				log.Println("ws ping stopped:", ctx.Err())
 				return
-			default:
-				// its okay
+			case <-ticker.C:
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					cancel()
+					return
+				}
+				log.Println("ws ping")
 			}
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Println("Ping error:", err)
-			}
-			time.Sleep(10 * time.Second)
-			log.Println("ws ping")
 		}
 	}()
 
@@ -116,11 +119,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	createPeer(conn, config, &stop)
+	createPeer(conn, config, ctx)
 
 }
 
-func createPeer(conn *websocket.Conn, config webrtc.Configuration, stop *chan struct{}) {
+func createPeer(conn *websocket.Conn, config webrtc.Configuration, ctx context.Context) {
 
 	pc, err := webrtc.NewPeerConnection(config)
 	if err != nil {
@@ -133,7 +136,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration, stop *chan st
 	defer robotgo.MouseUp(robotgo.Key1)
 	defer robotgo.MouseUp(robotgo.Key2)
 
-	handlePeer(pc, stop)
+	handlePeer(pc, ctx)
 
 	// Send ICE candidates to client
 	pc.OnICECandidate(func(candidate *webrtc.ICECandidate) {
@@ -206,7 +209,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration, stop *chan st
 	// Handle signaling messages
 	for {
 		select {
-		case <-*stop:
+		case <-ctx.Done():
 			log.Println("signaling loop stopped by stop chan")
 			return
 		default:
@@ -255,7 +258,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration, stop *chan st
 	}
 }
 
-func handlePeer(pc *webrtc.PeerConnection, stop *chan struct{}) {
+func handlePeer(pc *webrtc.PeerConnection, ctx context.Context) {
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(
 		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
 		"video",
@@ -275,7 +278,7 @@ func handlePeer(pc *webrtc.PeerConnection, stop *chan struct{}) {
 		rtcpBuf := make([]byte, 1500)
 		for {
 			select {
-			case <-*stop:
+			case <-ctx.Done():
 				log.Println("rtcp loop stopped by stop chan")
 				return
 			default:
@@ -294,7 +297,7 @@ func handlePeer(pc *webrtc.PeerConnection, stop *chan struct{}) {
 		}
 	}()
 
-	captureErr := CaptureScreenToTrack(videoTrack, pc, appConfig.StreamSettings.FPS, stop)
+	captureErr := CaptureScreenToTrack(videoTrack, pc, appConfig.StreamSettings.FPS, ctx)
 	if captureErr != nil {
 		log.Println(captureErr)
 		return
