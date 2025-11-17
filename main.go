@@ -297,7 +297,7 @@ func handlePeer(pc *webrtc.PeerConnection, ctx context.Context) {
 		}
 	}()
 
-	captureErr := CaptureScreenToTrack(videoTrack, pc, appConfig.StreamSettings.FPS, ctx)
+	captureErr := CaptureScreenToTrack(ctx, videoTrack, pc, appConfig.StreamSettings.FPS)
 	if captureErr != nil {
 		log.Println(captureErr)
 		return
