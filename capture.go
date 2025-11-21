@@ -25,10 +25,12 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 			"-video_size", "1920x1080",
 			"-i", "desktop",
 			"-c:v", "h264_nvenc",
-			"-preset", "p1",
-			//"-tune", "ull", // stream doesnt work??
+			"-preset", "12",
+			//"-tune", "3", // breaks the stream
 			"-rgb_mode", "yuv420",
 			"-zerolatency", "1",
+			"-delay", "0",
+			"-qp", "50",
 			"-bsf:v", "h264_mp4toannexb",
 			"-b:v", "900k",
 			"-bf", "0",
