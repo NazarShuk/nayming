@@ -170,8 +170,6 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 		}
 
 		frameDuration := time.Second / time.Duration(fps)
-		frameCount := 0
-		startTime := time.Now()
 
 		for {
 			select {
@@ -221,31 +219,12 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 				return
 			}
 
-			// IMPORTANT: Make a copy for WriteSample since we're reusing the buffer
-			// WebRTC might hold onto the slice asynchronously
-			frameCopy := make([]byte, frameSize)
-			copy(frameCopy, frameData)
-
-			// Return buffer to pool immediately
+			sendBuf := make([]byte, frameSize)
+			copy(sendBuf, frameData)
 			if pool != nil {
 				pool.Put(frameBufPtr)
 			}
-
-			// Write to track
-			if err := track.WriteSample(media.Sample{
-				Data:     frameCopy,
-				Duration: frameDuration,
-			}); err != nil {
-				log.Println("Track write error:", err)
-				// Don't return on write errors, might be temporary
-			}
-
-			frameCount++
-			if frameCount%200 == 0 {
-				elapsed := time.Since(startTime).Seconds()
-				actualFPS := float64(frameCount) / elapsed
-				log.Printf("Sent %d frames, actual FPS: %.2f", frameCount, actualFPS)
-			}
+			track.WriteSample(media.Sample{Data: sendBuf, Duration: frameDuration})
 		}
 	}()
 
