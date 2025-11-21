@@ -30,7 +30,7 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 			"-rgb_mode", "yuv420",
 			"-zerolatency", "1",
 			"-delay", "0",
-			"-qp", "50",
+			"-qp", "25",
 			"-bsf:v", "h264_mp4toannexb",
 			"-b:v", "900k",
 			"-bf", "0",
