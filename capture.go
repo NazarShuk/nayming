@@ -1,230 +1,74 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
-	"log"
-	"sync"
 	"time"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
-	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"github.com/pion/webrtc/v3/pkg/media/h264reader"
 )
 
-var (
-	// Pool for IVF headers (32 bytes)
-	headerPool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, 32)
-			return &buf
-		},
-	}
-
-	// Pool for frame headers (12 bytes)
-	frameHeaderPool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, 12)
-			return &buf
-		},
-	}
-
-	// Pool for frame data (reusable slices)
-	// We'll use a tiered approach for different sizes
-	smallFramePool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, 32*1024) // 32KB
-			return &buf
-		},
-	}
-
-	mediumFramePool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, 128*1024) // 128KB
-			return &buf
-		},
-	}
-
-	largeFramePool = sync.Pool{
-		New: func() interface{} {
-			buf := make([]byte, 512*1024) // 512KB
-			return &buf
-		},
-	}
+const (
+	h264FrameDuration = time.Millisecond * 33
 )
-
-func getFrameBuffer(size uint32) (*[]byte, *sync.Pool) {
-	var pool *sync.Pool
-
-	switch {
-	case size <= 32*1024:
-		pool = &smallFramePool
-	case size <= 128*1024:
-		pool = &mediumFramePool
-	default:
-		pool = &largeFramePool
-	}
-
-	bufPtr := pool.Get().(*[]byte)
-	buf := *bufPtr
-
-	// If pooled buffer is too small, allocate a new one
-	if uint32(len(buf)) < size {
-		newBuf := make([]byte, size)
-		return &newBuf, nil // Don't return to pool
-	}
-
-	// Slice to exact size needed
-	buf = buf[:size]
-	*bufPtr = buf
-	return bufPtr, pool
-}
 
 func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int) error {
-	stream := ffmpeg.Input("desktop",
-		ffmpeg.KwArgs{
-			"f":                 "gdigrab",
-			"framerate":         fmt.Sprintf("%d", fps),
-			"video_size":        "1920x1080",
-			"probesize":         "32",  // ADD: Reduce probing time
-			"thread_queue_size": "512", // ADD: Increase input buffer
-		}).
-		Output("pipe:",
-			ffmpeg.KwArgs{
-				"c:v":             "libvpx",
-				"deadline":        "realtime",
-				"cpu-used":        "8",
-				"threads":         "4",
-				"error-resilient": "1",
-				"auto-alt-ref":    "0",
-				"lag-in-frames":   "0",
-				"keyint_min":      "60",
-				"g":               "60",
-				"b:v":             fmt.Sprintf("%dk", appConfig.StreamSettings.bitrate),
-				"minrate":         fmt.Sprintf("%dk", appConfig.StreamSettings.minBitrate),
-				"maxrate":         fmt.Sprintf("%dk", appConfig.StreamSettings.maxBitrate),
-				"bufsize":         "200k",
-				"quality":         "realtime",
-				"speed":           "8",
-				"tile-columns":    "1",
-				"frame-parallel":  "0",
-				"static-thresh":   "0",
-				"max-intra-rate":  "300",
-				"qmin":            "4",
-				"qmax":            "48",
-				"undershoot-pct":  "95",
-				"pix_fmt":         "yuv420p",
-				"slices":          "4",
-				"f":               "ivf",
-				"loglevel":        "error",
-			})
-	cmd := stream.Compile()
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("stdout pipe error: %w", err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("stderr pipe error: %w", err)
-	}
-
-	// Monitor stderr
 	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				log.Println("FFmpeg:", scanner.Text())
-			}
-		}
-	}()
 
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("ffmpeg start error: %w", err)
-	}
+		dataPipe, err := RunCommand("ffmpeg",
+			"-f", "gdigrab",
+			"-framerate", "30",
+			"-video_size", "1920x1080",
+			"-i", "desktop",
+			"-c:v", "h264_nvenc",
+			"-preset", "p1",
+			//"-tune", "ull", // stream doesnt work??
+			"-rgb_mode", "yuv420",
+			"-zerolatency", "1",
+			"-bsf:v", "h264_mp4toannexb",
+			"-b:v", "900k",
+			"-bf", "0",
+			"-f", "h264",
+			"-b", "900k",
+			"-", // important!
+		)
 
-	// Goroutine to handle FFmpeg process lifecycle
-	go func() {
-		defer func() {
-			if cmd.Process != nil {
-				cmd.Process.Kill()
-			}
-			cmd.Wait()
-			log.Println("FFmpeg process stopped")
-		}()
-
-		// Read IVF header using pool
-		headerBufPtr := headerPool.Get().(*[]byte)
-		ivfHeader := *headerBufPtr
-		defer headerPool.Put(headerBufPtr)
-
-		if _, err := io.ReadFull(stdout, ivfHeader); err != nil {
-			log.Println("Failed to read IVF header:", err)
-			return
+		if err != nil {
+			panic(err)
 		}
 
-		frameDuration := time.Second / time.Duration(fps)
+		h264, h264Err := h264reader.NewReader(dataPipe)
+		if h264Err != nil {
+			panic(h264Err)
+		}
 
-		for {
-			select {
-			case <-ctx.Done():
-				log.Println("Capture stopped:", ctx.Err())
-				return
-			default:
+		spsAndPpsCache := []byte{}
+		ticker := time.NewTicker(h264FrameDuration)
+		for ; true; <-ticker.C {
+			nal, h264Err := h264.NextNAL()
+			if h264Err == io.EOF {
+				fmt.Printf("All video frames parsed and sent")
+			} else if h264Err != nil {
+				panic(h264Err)
 			}
 
-			// Read frame header using pool
-			frameHeaderBufPtr := frameHeaderPool.Get().(*[]byte)
-			frameHeader := *frameHeaderBufPtr
+			nal.Data = append([]byte{0x00, 0x00, 0x00, 0x01}, nal.Data...)
 
-			if _, err := io.ReadFull(stdout, frameHeader); err != nil {
-				frameHeaderPool.Put(frameHeaderBufPtr)
-				if err == io.EOF {
-					log.Println("Stream ended")
-					return
-				}
-				log.Println("Frame header error:", err)
-				return
+			if nal.UnitType == h264reader.NalUnitTypeSPS || nal.UnitType == h264reader.NalUnitTypePPS {
+				spsAndPpsCache = append(spsAndPpsCache, nal.Data...)
+				continue
+			} else if nal.UnitType == h264reader.NalUnitTypeCodedSliceIdr {
+				nal.Data = append(spsAndPpsCache, nal.Data...)
+				spsAndPpsCache = []byte{}
 			}
 
-			// Extract frame size (little-endian)
-			frameSize := uint32(frameHeader[0]) |
-				uint32(frameHeader[1])<<8 |
-				uint32(frameHeader[2])<<16 |
-				uint32(frameHeader[3])<<24
-
-			frameHeaderPool.Put(frameHeaderBufPtr)
-
-			// Validate frame size
-			if frameSize == 0 || frameSize > 10*1024*1024 { // Max 10MB
-				log.Printf("Invalid frame size: %d bytes", frameSize)
-				return
+			if h264Err = track.WriteSample(media.Sample{Data: nal.Data, Duration: h264FrameDuration}); h264Err != nil {
+				panic(h264Err)
 			}
-
-			// Get appropriately sized buffer from pool
-			frameBufPtr, pool := getFrameBuffer(frameSize)
-			frameData := (*frameBufPtr)[:frameSize]
-
-			if _, err := io.ReadFull(stdout, frameData); err != nil {
-				if pool != nil {
-					pool.Put(frameBufPtr)
-				}
-				log.Println("Frame data error:", err)
-				return
-			}
-
-			sendBuf := make([]byte, frameSize)
-			copy(sendBuf, frameData)
-			if pool != nil {
-				pool.Put(frameBufPtr)
-			}
-			track.WriteSample(media.Sample{Data: sendBuf, Duration: frameDuration})
 		}
 	}()
 
