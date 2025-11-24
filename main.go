@@ -260,7 +260,7 @@ func createPeer(conn *websocket.Conn, config webrtc.Configuration, ctx context.C
 
 func handlePeer(pc *webrtc.PeerConnection, ctx context.Context) {
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(
-		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8},
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264},
 		"video",
 		"pion",
 	)
@@ -284,16 +284,10 @@ func handlePeer(pc *webrtc.PeerConnection, ctx context.Context) {
 			default:
 				// its okay
 			}
-			n, _, err := rtpSender.Read(rtcpBuf)
-			if err != nil {
-				log.Println("RTCP read error:", err)
+			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
 				return
 			}
 
-			// Log RTCP packets for debugging
-			if n > 0 {
-				log.Printf("Received RTCP packet: %d bytes", n)
-			}
 		}
 	}()
 
