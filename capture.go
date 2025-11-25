@@ -15,7 +15,7 @@ const (
 	h264FrameDuration = time.Millisecond * 33
 )
 
-func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection, fps int) error {
+func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection) error {
 
 	go func() {
 

@@ -27,30 +27,11 @@ type IceServer struct {
 type AppConfig struct {
 	MouseEnabled    bool
 	KeyboardEnabled bool
-	StreamSettings  AppStreamSettings
-}
-type AppStreamSettings struct {
-	FPS        int
-	bitrate    int
-	maxBitrate int
-	minBitrate int
-	qmin       int
-	qmax       int
-	speed      int
 }
 
 var appConfig AppConfig = AppConfig{
 	MouseEnabled:    true,
 	KeyboardEnabled: true,
-	StreamSettings: AppStreamSettings{
-		FPS:        60,
-		bitrate:    1000,
-		maxBitrate: 2000,
-		minBitrate: 500,
-		qmin:       10,
-		qmax:       63,
-		speed:      16,
-	},
 }
 
 func main() {
@@ -291,7 +272,7 @@ func handlePeer(pc *webrtc.PeerConnection, ctx context.Context) {
 		}
 	}()
 
-	captureErr := CaptureScreenToTrack(ctx, videoTrack, pc, appConfig.StreamSettings.FPS)
+	captureErr := CaptureScreenToTrack(ctx, videoTrack, pc)
 	if captureErr != nil {
 		log.Println(captureErr)
 		return
