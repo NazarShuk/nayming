@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-vgo/robotgo"
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -45,7 +47,23 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
+func getPassword() string {
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	return os.Getenv("PASSWORD")
+}
+
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	password := r.URL.Query().Get("password")
+	if password != getPassword() {
+		log.Println("Client tried to connect but password was wrong!")
+		http.Error(w, "Incorrect password", 403)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)

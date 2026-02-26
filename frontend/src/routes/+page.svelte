@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 
 	let serverAddress = $state('ws://localhost:8080');
+	let password = $state("")
 
 	let ws: WebSocket | null = $state(null);
 	let connection: RTCPeerConnection | null = $state(null);
@@ -16,16 +17,24 @@
 	function saveAddress() {
 		localStorage.setItem('serverAddress', serverAddress);
 	}
+	function savePassword(){
+		localStorage.setItem("password", password)
+	}
+
 	onMount(() => {
 		serverAddress = localStorage.getItem('serverAddress') || 'ws://localhost:8080';
+		password = localStorage.getItem("password") || ""
 	});
 
 	function connect() {
-		ws = new WebSocket(`${serverAddress}/ws`);
+		ws = new WebSocket(`${serverAddress}/ws?password=${password}`);
 		ws.onopen = async () => {
 			console.log('WebSocket connected');
 			status = 'WebSocket connected, waiting for ICE servers...';
 		};
+		ws.onerror = async ()=>{
+			status = "Websocket failed to connect. "
+		}
 
 		ws.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
@@ -255,8 +264,8 @@
 			</h1>
 		</div>
 	{:else}
-		<div class="h-1/2 w-1/2 flex-col rounded bg-neutral-900 p-2.5">
-			<h1 class="mb-5 text-xl font-bold">Connect</h1>
+		<div class="h-fit md:w-1/2 w-[95%] flex-col rounded bg-neutral-900 p-2.5">
+			<h1 class="mb-5 text-xl font-bold">Nayming</h1>
 			<form
 				class="flex flex-row justify-between gap-5"
 				onsubmit={(e) => {
@@ -264,14 +273,24 @@
 					connect();
 				}}
 			>
+				<div class="flex flex-col gap-2.5 w-full">
 				<input
 					bind:value={serverAddress}
 					onchange={saveAddress}
 					class="w-full rounded bg-neutral-800 p-1"
 					placeholder="server address"
 				/>
+				<input
+					bind:value={password}
+					onchange={savePassword}
+					class="w-full rounded bg-neutral-800 p-1"
+					placeholder="password"
+					type="password"
+				/>
+				</div>
 
-				<button class="rounded bg-neutral-800 p-1" type="submit">Connect</button>
+
+				<button class="rounded bg-neutral-800 p-1 h-fit m-auto" type="submit">Connect</button>
 			</form>
 		</div>
 	{/if}
