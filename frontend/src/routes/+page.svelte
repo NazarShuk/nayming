@@ -98,7 +98,7 @@
 				status = 'WebRTC connecting...';
 			}
 			if (connection?.connectionState === 'connected') {
-				status = '';
+				status = 'Connected! The screen should appear soon.';
 			}
 		};
 
@@ -256,10 +256,11 @@
 				}}
 				class="h-full w-full"
 				bind:this={videoElement}
+				onplaying={()=> status=""}
 			>
 				<track kind="captions" />
 			</video>
-			<h1 class="transform-x-[-50%] transform-y-[-50%] absolute left-1/2 top-1/2 z-10 text-center">
+			<h1 style="transform: translate(-50%, -50%);" class="absolute left-1/2 top-1/2 z-10 text-center">
 				{status}
 			</h1>
 		</div>
