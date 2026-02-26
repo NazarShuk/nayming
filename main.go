@@ -15,7 +15,7 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return r.Header.Get("Origin") == "https://nayming.vercel.app"
+		return true
 	},
 }
 

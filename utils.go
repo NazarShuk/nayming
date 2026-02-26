@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"log"
 	"os/exec"
@@ -20,8 +21,8 @@ func doneChan(pc *webrtc.PeerConnection) chan struct{} {
 	})
 	return done
 }
-func RunCommand(name string, arg ...string) (io.ReadCloser, error) {
-	cmd := exec.Command(name, arg...)
+func RunCommand(ctx context.Context, name string, arg ...string) (io.ReadCloser, error) {
+	cmd := exec.CommandContext(ctx, name, arg...)
 
 	dataPipe, err := cmd.StdoutPipe()
 	if err != nil {
