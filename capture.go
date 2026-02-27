@@ -19,7 +19,7 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 
 		dataPipe, err := RunCommand(ctx, "ffmpeg",
 			"-init_hw_device", "d3d11va", // Initialize D3D11 hardware acceleration
-			"-filter_complex", "ddagrab=0", // Use Desktop Duplication API
+			"-filter_complex", "ddagrab=draw_mouse=0", // Use Desktop Duplication API
 			"-c:v", "h264_nvenc",
 			"-preset", "p1",
 			//"-tune", "ull",
