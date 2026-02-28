@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 
 	let serverAddress = $state('ws://localhost:8080');
-	let password = $state("")
+	let password = $state('');
 
 	let ws: WebSocket | null = $state(null);
 	let connection: RTCPeerConnection | null = $state(null);
@@ -14,16 +14,18 @@
 	let iceServers: RTCIceServer[] = [];
 	let status: string = $state('Websocket connecting...');
 
+	let screenSize = $state({ width: 1920, height: 1080 });
+
 	function saveAddress() {
 		localStorage.setItem('serverAddress', serverAddress);
 	}
-	function savePassword(){
-		localStorage.setItem("password", password)
+	function savePassword() {
+		localStorage.setItem('password', password);
 	}
 
 	onMount(() => {
 		serverAddress = localStorage.getItem('serverAddress') || 'ws://localhost:8080';
-		password = localStorage.getItem("password") || ""
+		password = localStorage.getItem('password') || '';
 	});
 
 	function connect() {
@@ -32,9 +34,9 @@
 			console.log('WebSocket connected');
 			status = 'WebSocket connected, waiting for ICE servers...';
 		};
-		ws.onerror = async ()=>{
-			status = "Websocket failed to connect. "
-		}
+		ws.onerror = async () => {
+			status = 'Websocket failed to connect. ';
+		};
 
 		ws.onmessage = async (event) => {
 			const msg = JSON.parse(event.data);
@@ -52,6 +54,8 @@
 				status = 'ICE servers received, creating connection...';
 				console.log('creating connection');
 				createConnection();
+			} else if (msg.type === 'screenSize') {
+				screenSize = msg.screenSize;
 			}
 		};
 	}
@@ -140,8 +144,8 @@
 			event.clientY - rect.top,
 			rect.width,
 			rect.height,
-			1920,
-			1080
+			screenSize.width,
+			screenSize.height
 		);
 
 		if (mouseChannel?.readyState === 'open') {
@@ -156,17 +160,6 @@
 	}
 	function handleMouseDown(event: MouseEvent) {
 		event.preventDefault();
-		const target = event.target as HTMLImageElement;
-		const rect = target.getBoundingClientRect();
-
-		const { x, y } = toScreenCoords(
-			event.clientX - rect.left,
-			event.clientY - rect.top,
-			rect.width,
-			rect.height,
-			1920,
-			1080
-		);
 
 		if (mouseChannel?.readyState === 'open') {
 			mouseChannel?.send(
@@ -179,17 +172,7 @@
 	}
 	function handleMouseUp(event: MouseEvent) {
 		event.preventDefault();
-		const target = event.target as HTMLImageElement;
-		const rect = target.getBoundingClientRect();
 
-		const { x, y } = toScreenCoords(
-			event.clientX - rect.left,
-			event.clientY - rect.top,
-			rect.width,
-			rect.height,
-			1920,
-			1080
-		);
 		if (mouseChannel?.readyState === 'open') {
 			mouseChannel?.send(
 				JSON.stringify({
@@ -256,16 +239,19 @@
 				}}
 				class="h-full w-full"
 				bind:this={videoElement}
-				onplaying={()=> status=""}
+				onplaying={() => (status = '')}
 			>
 				<track kind="captions" />
 			</video>
-			<h1 style="transform: translate(-50%, -50%);" class="absolute left-1/2 top-1/2 z-10 text-center">
+			<h1
+				style="transform: translate(-50%, -50%);"
+				class="absolute top-1/2 left-1/2 z-10 text-center"
+			>
 				{status}
 			</h1>
 		</div>
 	{:else}
-		<div class="h-fit md:w-1/2 w-[95%] flex-col rounded bg-neutral-900 p-2.5">
+		<div class="h-fit w-[95%] flex-col rounded bg-neutral-900 p-2.5 md:w-1/2">
 			<h1 class="mb-5 text-xl font-bold">Nayming</h1>
 			<form
 				class="flex flex-row justify-between gap-5"
@@ -274,24 +260,23 @@
 					connect();
 				}}
 			>
-				<div class="flex flex-col gap-2.5 w-full">
-				<input
-					bind:value={serverAddress}
-					onchange={saveAddress}
-					class="w-full rounded bg-neutral-800 p-1"
-					placeholder="server address"
-				/>
-				<input
-					bind:value={password}
-					onchange={savePassword}
-					class="w-full rounded bg-neutral-800 p-1"
-					placeholder="password"
-					type="password"
-				/>
+				<div class="flex w-full flex-col gap-2.5">
+					<input
+						bind:value={serverAddress}
+						onchange={saveAddress}
+						class="w-full rounded bg-neutral-800 p-1"
+						placeholder="server address"
+					/>
+					<input
+						bind:value={password}
+						onchange={savePassword}
+						class="w-full rounded bg-neutral-800 p-1"
+						placeholder="password"
+						type="password"
+					/>
 				</div>
 
-
-				<button class="rounded bg-neutral-800 p-1 h-fit m-auto" type="submit">Connect</button>
+				<button class="m-auto h-fit rounded bg-neutral-800 p-1" type="submit">Connect</button>
 			</form>
 		</div>
 	{/if}

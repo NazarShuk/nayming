@@ -118,6 +118,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	screenWidth, screenHeight := robotgo.GetScreenSize()
+
+	conn.WriteJSON(map[string]interface{}{
+		"type":       "screenSize",
+		"screenSize": map[string]interface{}{"width": screenWidth, "height": screenHeight},
+	})
+
 	createPeer(conn, config, ctx)
 
 }
