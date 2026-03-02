@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +16,10 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/pion/webrtc/v3"
 )
+
+//go:embed frontend/build/*
+
+var staticFiles embed.FS
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -37,11 +43,14 @@ var appConfig AppConfig = AppConfig{
 }
 
 func main() {
-
 	http.HandleFunc("/ws", handleWebSocket)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "index.html")
-	})
+
+	public, err := fs.Sub(staticFiles, "frontend/build")
+	if err != nil {
+		panic(err)
+	}
+
+	http.Handle("/", http.FileServer(http.FS(public)))
 
 	fmt.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
