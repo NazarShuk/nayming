@@ -28,6 +28,27 @@
 		password = localStorage.getItem('password') || '';
 	});
 
+	let stats = $state({ rtt: 0, jitter: 0 });
+
+	async function updateStats() {
+		if (!connection) return;
+
+		const reports = await connection.getStats();
+		reports.forEach((report) => {
+			if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+				stats.rtt = report.currentRoundTripTime * 1000; // Convert to ms
+			}
+			if (report.type === 'inbound-rtp' && report.kind === 'video') {
+				stats.jitter = report.jitter * 1000; // Convert to ms
+			}
+		});
+	}
+
+	onMount(() => {
+		const interval = setInterval(updateStats, 1000);
+		return () => clearInterval(interval);
+	});
+
 	function connect() {
 		ws = new WebSocket(`${serverAddress}/ws?password=${password}`);
 		ws.onopen = async () => {
@@ -249,6 +270,13 @@
 			>
 				{status}
 			</h1>
+
+			<div
+				class="absolute top-4 left-4 z-20 rounded bg-black/50 p-2 font-mono text-xs text-green-400"
+			>
+				<div>RTT: {stats.rtt.toFixed(0)}ms</div>
+				<div>Jitter: {stats.jitter.toFixed(2)}ms</div>
+			</div>
 		</div>
 	{:else}
 		<div class="h-fit w-[95%] flex-col rounded bg-neutral-900 p-2.5 md:w-1/2">
