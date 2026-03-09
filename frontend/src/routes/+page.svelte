@@ -261,6 +261,9 @@
 				class="h-full w-full"
 				bind:this={videoElement}
 				onplaying={() => (status = '')}
+				muted
+				playsinline
+				autoplay
 			>
 				<track kind="captions" />
 			</video>

@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	h264FrameDuration = time.Millisecond * 33
+	captureFramerate  = 60
+	h264FrameDuration = time.Second / captureFramerate
 )
 
 func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSample, pc *webrtc.PeerConnection) error {
@@ -18,25 +19,25 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 	go func() {
 
 		dataPipe, err := RunCommand(ctx, "ffmpeg",
-			"-init_hw_device", "d3d11va", // Initialize D3D11 hardware acceleration
-			"-filter_complex", "ddagrab=draw_mouse=0", // Use Desktop Duplication API
+			"-init_hw_device", "d3d11va",
+			"-filter_complex", "ddagrab=framerate=60:draw_mouse=0",
 			"-c:v", "h264_nvenc",
 			"-preset", "p1",
-			//"-tune", "ull",
+			"-tune", "ull",
+			"-rc", "cbr",
 			"-rgb_mode", "yuv420",
 			"-zerolatency", "1",
 			"-delay", "0",
-			"-bf", "0", // No B-frames
-			"-rc-lookahead", "0", // Disable lookahead
-			"-forced-idr", "1", // Force IDR frames
-			"-fflags", "nobuffer", // Reduce FFmpeg input/output buffering
-			"-flags", "low_delay", // Signal low delay to the muxer
-			"-qp", "25",
-			"-bsf:v", "h264_mp4toannexb",
-			"-b:v", "900k",
 			"-bf", "0",
+			"-rc-lookahead", "0",
+			"-forced-idr", "1",
+			"-g", "60", // 1 keyframe per second at 60fps
+			"-fflags", "nobuffer",
+			"-flags", "low_delay",
+			"-bsf:v", "h264_mp4toannexb",
+			"-b:v", "8M",
 			"-f", "h264",
-			"-", // important!
+			"-",
 		)
 
 		if err != nil {
@@ -50,35 +51,31 @@ func CaptureScreenToTrack(ctx context.Context, track *webrtc.TrackLocalStaticSam
 
 		var spsAndPpsCache []byte
 
-		// 2. NO TICKER: Process NALs as fast as FFmpeg provides them
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				nal, err := h264.NextNAL()
-				if err != nil {
-					return
-				}
+			}
 
-				// Prepend start code for Annex-B
-				nal.Data = append([]byte{0x00, 0x00, 0x00, 0x01}, nal.Data...)
+			nal, err := h264.NextNAL()
+			if err != nil {
+				return
+			}
 
-				if nal.UnitType == h264reader.NalUnitTypeSPS || nal.UnitType == h264reader.NalUnitTypePPS {
-					spsAndPpsCache = append(spsAndPpsCache, nal.Data...)
-					continue // Cache metadata, don't write sample yet
-				}
+			nal.Data = append([]byte{0x00, 0x00, 0x00, 0x01}, nal.Data...)
 
-				if nal.UnitType == h264reader.NalUnitTypeCodedSliceIdr {
-					// 3. Prepend cached headers to EVERY IDR frame.
-					// Do NOT clear the cache so new frames are always valid
-					nal.Data = append(spsAndPpsCache, nal.Data...)
-				}
+			if nal.UnitType == h264reader.NalUnitTypeSPS || nal.UnitType == h264reader.NalUnitTypePPS {
+				spsAndPpsCache = append(spsAndPpsCache, nal.Data...)
+				continue
+			}
 
-				// 4. Write the sample. duration: 33ms for 30fps
-				if err = track.WriteSample(media.Sample{Data: nal.Data, Duration: h264FrameDuration}); err != nil {
-					return
-				}
+			if nal.UnitType == h264reader.NalUnitTypeCodedSliceIdr {
+				nal.Data = append(spsAndPpsCache, nal.Data...)
+			}
+
+			if err = track.WriteSample(media.Sample{Data: nal.Data, Duration: h264FrameDuration}); err != nil {
+				return
 			}
 		}
 	}()
