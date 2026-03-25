@@ -72,3 +72,4 @@ func turnToken() string {
 	}
 	return os.Getenv("TURN_API_TOKEN")
 }
+// Add calling to Nayming
